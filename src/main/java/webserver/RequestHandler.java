@@ -49,9 +49,6 @@ public class RequestHandler extends Thread {
                         headers.put(tokens[0], tokens[1]);
                     }
                 }
-
-
-
                 String requestBody = IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
                 LOGGER.debug("body : {}", requestBody);
 
@@ -59,10 +56,10 @@ public class RequestHandler extends Thread {
                 User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
                 LOGGER.debug("User : {}", user);
 
-                url = "/index.html";
-
+                DataOutputStream dos = new DataOutputStream(out);
+                response302Header(dos);
+                return;
             }
-
             DataOutputStream dos = new DataOutputStream(out);
             byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
             response200Header(dos, body.length);
@@ -71,6 +68,18 @@ public class RequestHandler extends Thread {
             LOGGER.error(e.getMessage());
         }
     }
+
+    private void response302Header(DataOutputStream dos) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: /\r\n");
+            dos.writeBytes("\r\n");
+            LOGGER.debug("302 Found");
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage());
+        }
+    }
+
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
         try {
