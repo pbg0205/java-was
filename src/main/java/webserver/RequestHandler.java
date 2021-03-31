@@ -5,7 +5,9 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
+import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,10 +58,40 @@ public class RequestHandler extends Thread {
                 User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
                 LOGGER.debug("User : {}", user);
 
+                DataBase.addUser(user);
+
                 DataOutputStream dos = new DataOutputStream(out);
                 response302Header(dos);
                 return;
             }
+
+            if (url.equals("/user/login")) {
+                while (!(line = br.readLine()).equals("")) {
+                    HttpRequestUtils.Pair pair = HttpRequestUtils.parseHeader(line);
+                    headers.put(pair.getKey(), pair.getValue());
+                }
+                String requestBody = IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
+                LOGGER.debug("body : {}", requestBody);
+
+                Map<String, String> params = HttpRequestUtils.parseQueryString(requestBody);
+                User inputUser = new User(params.get("userId"), params.get("password"));
+                User userInDB = Optional.ofNullable(DataBase.findUserById(params.get("userId")))
+                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
+
+                LOGGER.debug("User : {}", inputUser);
+
+                DataOutputStream dos = new DataOutputStream(out);
+
+                if (userInDB.matchUser(inputUser)) {
+                    LOGGER.debug("login success!!");
+                    responseHeaderWithCookie(dos, "loggedIn= true");
+                } else {
+                    LOGGER.debug("login fail!!");
+                    response302Header(dos);
+                }
+                return;
+            }
+
             DataOutputStream dos = new DataOutputStream(out);
             byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
             response200Header(dos, body.length);
@@ -80,6 +112,17 @@ public class RequestHandler extends Thread {
         }
     }
 
+    private void responseHeaderWithCookie(DataOutputStream dos, String cookieStatus) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: /\r\n");
+            dos.writeBytes("setCookie:" + cookieStatus + "/\r\n");
+            dos.writeBytes("\r\n");
+            LOGGER.debug("302 Found");
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage());
+        }
+    }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
         try {
