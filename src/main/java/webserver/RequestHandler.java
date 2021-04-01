@@ -92,7 +92,26 @@ public class RequestHandler extends Thread {
                 return;
             }
 
-            if(url.endsWith(".css")){
+            if (url.equals("/user/list")) {
+                while (!(line = br.readLine()).equals("")) {
+                    HttpRequestUtils.Pair pair = HttpRequestUtils.parseHeader(line);
+                    headers.put(pair.getKey(), pair.getValue());
+                }
+
+                String cookie = headers.get("Cookie");
+                Map<String, String> cookieString = HttpRequestUtils.parseCookies(cookie);
+                String cookieStatus = cookieString.get("logined");
+
+                LOGGER.debug("cookie status : {}", cookieStatus);
+
+                if (cookieStatus.equals("true")) {
+                    url = "/user/list.html";
+                } else {
+                    url = "/user/login.html";
+                }
+            }
+
+            if (url.endsWith(".css")) {
                 DataOutputStream dos = new DataOutputStream(out);
                 byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
                 response200HeaderWithCss(dos, body.length);
